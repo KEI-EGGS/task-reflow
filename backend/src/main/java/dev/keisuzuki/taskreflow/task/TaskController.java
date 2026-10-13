@@ -1,5 +1,6 @@
 package dev.keisuzuki.taskreflow.task;
 
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -47,7 +48,7 @@ public class TaskController {
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Task create(@RequestBody TaskCreateRequest request) {
+    public Task create(@Valid @RequestBody TaskCreateRequest request) {
         return taskRepository.insert(DEV_USER_ID, request);
     }
 }
