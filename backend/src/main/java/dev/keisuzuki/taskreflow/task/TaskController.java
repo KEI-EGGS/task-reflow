@@ -5,8 +5,11 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -50,5 +53,29 @@ public class TaskController {
     @ResponseStatus(HttpStatus.CREATED)
     public Task create(@Valid @RequestBody TaskCreateRequest request) {
         return taskRepository.insert(DEV_USER_ID, request);
+    }
+
+    /**
+     * タスクを1件書き換え，書き換えた後の値を返す．
+     *
+     * @throws TaskNotFoundException 指定した ID のタスクが無いとき
+     */
+    @PutMapping("/{id}")
+    public Task update(@PathVariable long id, @Valid @RequestBody TaskUpdateRequest request) {
+        return taskRepository.update(DEV_USER_ID, id, request)
+                .orElseThrow(() -> new TaskNotFoundException(id));
+    }
+
+    /**
+     * タスクを1件削除する．返す本文は無い．
+     *
+     * @throws TaskNotFoundException 指定した ID のタスクが無いとき
+     */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable long id) {
+        if (!taskRepository.delete(DEV_USER_ID, id)) {
+            throw new TaskNotFoundException(id);
+        }
     }
 }

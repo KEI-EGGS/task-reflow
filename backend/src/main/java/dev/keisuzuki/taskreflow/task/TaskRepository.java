@@ -3,6 +3,7 @@ package dev.keisuzuki.taskreflow.task;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -72,5 +73,47 @@ public class TaskRepository {
                 .param("date", request.scheduledDate())
                 .query(TASK_MAPPER)
                 .single();
+    }
+
+    /**
+     * タスクを1件書き換え，書き換えた後の値を返す．
+     * 他人のタスクを書き換えられないよう，id だけでなく user_id でも絞る．
+     *
+     * @return 書き換えた後のタスク．該当する行が無ければ空
+     */
+    public Optional<Task> update(long userId, long id, TaskUpdateRequest request) {
+        return jdbcClient.sql("""
+                UPDATE tasks
+                   SET title = :title, description = :description,
+                       minutes = :minutes, status = :status
+                 WHERE id = :id AND user_id = :userId
+                RETURNING id, user_id, title, description, position, minutes,
+                          scheduled_date, status, created_at
+                """)
+                .param("title", request.title())
+                .param("description", request.description())
+                .param("minutes", request.minutes())
+                .param("status", request.status().value())
+                .param("id", id)
+                .param("userId", userId)
+                .query(TASK_MAPPER)
+                .optional();
+    }
+
+    /**
+     * タスクを1件削除する．
+     * 他人のタスクを消せないよう，id だけでなく user_id でも絞る．
+     *
+     * @return 削除できたら true．該当する行が無ければ false
+     */
+    public boolean delete(long userId, long id) {
+        int rows = jdbcClient.sql("""
+                DELETE FROM tasks
+                 WHERE id = :id AND user_id = :userId
+                """)
+                .param("id", id)
+                .param("userId", userId)
+                .update();
+        return rows == 1;
     }
 }

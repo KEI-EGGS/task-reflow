@@ -1,5 +1,6 @@
 package dev.keisuzuki.taskreflow.web;
 
+import dev.keisuzuki.taskreflow.task.TaskNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -32,5 +33,18 @@ public class ApiExceptionHandler {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
         return errors;
+    }
+
+    /**
+     * 存在しないタスクを指定されたときの応答を組み立てる．
+     * 項目に紐づかないエラーなので，キーは項目名ではなく message 固定にする．
+     *
+     * @param e 見つからなかった ID をメッセージに含んでいる例外
+     * @return {"message": "タスクが見つかりません（id = 99）"}
+     */
+    @ExceptionHandler(TaskNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleTaskNotFound(TaskNotFoundException e) {
+        return Map.of("message", e.getMessage());
     }
 }
