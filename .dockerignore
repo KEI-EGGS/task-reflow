@@ -1,0 +1,7 @@
+# ビルドの成果物と依存は，イメージの中で作り直すので送らない
+**/node_modules
+**/build
+**/dist
+**/bin
+**/.gradle
+.git
