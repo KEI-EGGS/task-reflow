@@ -33,20 +33,23 @@ public class TaskRepository {
     }
 
     /**
-     * 指定したユーザーの，指定した日のタスクを並び順で返す．
+     * 指定したユーザーの，指定した期間のタスクを日付・並び順で返す．
+     * from と to は両端を含む．1日だけ欲しいときは同じ日付を渡す．
      *
      * @return 0件なら空のリスト（null は返さない）
      */
-    public List<Task> findByDate(long userId, LocalDate date) {
+    public List<Task> findByDateRange(long userId, LocalDate from, LocalDate to) {
         return jdbcClient.sql("""
                 SELECT id, user_id, title, description, position, minutes,
                        scheduled_date, status, created_at
                   FROM tasks
-                 WHERE user_id = :userId AND scheduled_date = :date
-                 ORDER BY position, id
+                 WHERE user_id = :userId
+                   AND scheduled_date BETWEEN :from AND :to
+                 ORDER BY scheduled_date, position, id
                 """)
                 .param("userId", userId)
-                .param("date", date)
+                .param("from", from)
+                .param("to", to)
                 .query(TASK_MAPPER)
                 .list();
     }

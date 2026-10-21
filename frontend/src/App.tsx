@@ -2,41 +2,63 @@ import { useEffect, useState } from 'react'
 import {
   createTask,
   deleteTask,
-  fetchTasks,
+  fetchTasksInRange,
   updateTask,
   ValidationError,
   type FieldErrors,
   type Task,
-} from './api'
+} from './api/tasks'
+import { toISODate, weekOf } from './functions/week'
+import DayColumn from './components/Week/DayColumn'
 import './App.css'
 
-/** 画面に出す日付．日付の切り替えは後のブロックで足す */
-const DATE = '2026-10-18'
+/**
+ * タスクを日付ごとに振り分ける．
+ * API が scheduled_date 順で返すので，1周するだけで組める．
+ */
+function groupByDate(tasks: Task[]): Map<string, Task[]> {
+  const byDate = new Map<string, Task[]>()
+  for (const task of tasks) {
+    const sameDay = byDate.get(task.scheduledDate)
+    if (sameDay) {
+      sameDay.push(task)
+    } else {
+      byDate.set(task.scheduledDate, [task])
+    }
+  }
+  return byDate
+}
 
 function App() {
+  // 表示している週を代表する日．週の切り替えは次のブロックで足す
+  const [anchor] = useState(() => new Date())
   const [tasks, setTasks] = useState<Task[]>([])
   const [error, setError] = useState<string | null>(null)
-  // 取得中かどうか．初回は true から始める
   const [loading, setLoading] = useState(true)
 
   // 追加フォームの入力値．minutes も文字列で持つ（空欄を表せるようにするため）
+  const [formDate, setFormDate] = useState(() => toISODate(new Date()))
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [minutes, setMinutes] = useState('60')
-  // 項目ごとのエラー．送信のたびに入れ替える
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  // 二重送信を防ぐ
   const [saving, setSaving] = useState(false)
 
+  const week = weekOf(anchor)
+  const today = toISODate(new Date())
+  const byDate = groupByDate(tasks)
+
   useEffect(() => {
-    fetchTasks(DATE)
+    setLoading(true)
+    fetchTasksInRange(week.from, week.to)
       .then(setTasks)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+    // week は毎回新しいオブジェクトになるので，中身の文字列を依存に使う
+  }, [week.from, week.to])
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault() // ページ遷移を止める
+    e.preventDefault()
     setSaving(true)
     setFieldErrors({})
     try {
@@ -44,10 +66,15 @@ function App() {
         title,
         description: description === '' ? null : description,
         minutes: Number(minutes),
-        scheduledDate: DATE,
+        scheduledDate: formDate,
       })
-      // サーバーが採番した position つきで返るので，そのまま末尾に足す
-      setTasks([...tasks, created])
+      // 表示中の週の外に足したときは，画面を動かさない
+      if (
+        created.scheduledDate >= week.from &&
+        created.scheduledDate <= week.to
+      ) {
+        setTasks([...tasks, created])
+      }
       setTitle('')
       setDescription('')
     } catch (e) {
@@ -70,7 +97,6 @@ function App() {
         minutes: task.minutes,
         status: task.status === 'done' ? 'todo' : 'done',
       })
-      // 書き換えた1件だけ差し替える
       setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)))
     } catch (e) {
       setError((e as Error).message)
@@ -88,37 +114,45 @@ function App() {
 
   return (
     <main>
-      <h1>{DATE} のタスク</h1>
+      <h1>
+        {week.from} 〜 {week.to}
+      </h1>
 
       {loading && <p>読み込み中…</p>}
       {error && <p className="error">{error}</p>}
 
-      {!loading && !error && tasks.length === 0 && (
-        <p>この日のタスクはまだありません</p>
-      )}
-
-      <ul className="tasks">
-        {tasks.map((task) => (
-          <li key={task.id} className={task.status === 'done' ? 'done' : ''}>
-            <input
-              type="checkbox"
-              checked={task.status === 'done'}
-              onChange={() => toggleDone(task)}
+      <div className="week-scroll">
+        <div className="week">
+          {week.days.map((day, dayIndex) => (
+            <DayColumn
+              key={day}
+              date={day}
+              dayIndex={dayIndex}
+              tasks={byDate.get(day) ?? []}
+              isToday={day === today}
+              onToggleDone={toggleDone}
+              onRemove={remove}
             />
-            <span className="title">{task.title}</span>
-            <span className="minutes">{task.minutes}分</span>
-            <button className="remove" onClick={() => remove(task)}>
-              削除
-            </button>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+      </div>
 
       <form className="add" onSubmit={handleSubmit}>
         <label>
+          日付
+          <input
+            type="date"
+            value={formDate}
+            onChange={(e) => setFormDate(e.target.value)}
+          />
+        </label>
+
+        <label>
           タスク名
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
-          {fieldErrors.title && <span className="error">{fieldErrors.title}</span>}
+          {fieldErrors.title && (
+            <span className="error">{fieldErrors.title}</span>
+          )}
         </label>
 
         <label>
