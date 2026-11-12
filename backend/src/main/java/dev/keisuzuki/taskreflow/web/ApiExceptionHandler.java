@@ -1,5 +1,6 @@
 package dev.keisuzuki.taskreflow.web;
 
+import dev.keisuzuki.taskreflow.task.InvalidDateRangeException;
 import dev.keisuzuki.taskreflow.task.TaskNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +46,18 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TaskNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleTaskNotFound(TaskNotFoundException e) {
+        return Map.of("message", e.getMessage());
+    }
+
+    /**
+     * 取得する期間の指定が逆転しているときの応答を組み立てる．
+     *
+     * @param e 指定された from と to をメッセージに含んでいる例外
+     * @return {"message": "期間の指定が逆です（from = ... ， to = ...）"}
+     */
+    @ExceptionHandler(InvalidDateRangeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleInvalidDateRange(InvalidDateRangeException e) {
         return Map.of("message", e.getMessage());
     }
 }

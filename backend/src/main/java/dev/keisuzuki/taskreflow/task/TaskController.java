@@ -36,14 +36,22 @@ public class TaskController {
     }
 
     /**
-     * 指定した日のタスクを並び順で返す．
+     * 指定した期間のタスクを，日付・並び順で返す．
      *
-     * @param date yyyy-MM-dd 形式
+     * @param from 期間の開始（この日を含む）．yyyy-MM-dd 形式
+     * @param to   期間の終了（この日を含む）．yyyy-MM-dd 形式
+     * @throws InvalidDateRangeException from が to より後のとき
      */
     @GetMapping
     public List<Task> list(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return taskRepository.findByDate(DEV_USER_ID, date);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        // SQL の BETWEEN は from > to のとき黙って0件を返す．
+        // 呼び出し側の組み立てミスが「タスクが無い」と見分けられなくなるので，ここで弾く
+        if (from.isAfter(to)) {
+            throw new InvalidDateRangeException(from, to);
+        }
+        return taskRepository.findByDateRange(DEV_USER_ID, from, to);
     }
 
     /**
