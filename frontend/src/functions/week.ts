@@ -19,6 +19,15 @@ export function toISODate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * yyyy-MM-dd をローカル日付の Date にする．toISODate の逆．
+ * new Date(文字列) は UTC 0 時になり，タイムゾーンによって前日にずれるので使わない
+ */
+export function fromISODate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 /** d の n 日後（n が負なら前）を返す．元の Date は書き換えない */
 export function shiftDays(d: Date, n: number): Date {
   const shifted = new Date(d)

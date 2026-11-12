@@ -5,10 +5,11 @@ import {
   updateTask,
   type Task,
 } from './api/tasks'
-import { shiftDays, toISODate, weekOf } from './functions/week'
+import { fromISODate, shiftDays, toISODate, weekOf } from './functions/week'
 import DayColumn from './components/Week/DayColumn'
 import TaskForm, { type Placement } from './components/Week/TaskForm'
 import Modal from './components/Common/Modal'
+import { useSnackbar } from './contexts/SnackbarProvider'
 import './App.css'
 
 /**
@@ -36,6 +37,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   // null のときモーダルは閉じている．開くときは「どこに置くか」を入れる
   const [placement, setPlacement] = useState<Placement | null>(null)
+  const snackbar = useSnackbar()
 
   const week = weekOf(anchor)
   const today = toISODate(new Date())
@@ -65,13 +67,21 @@ function App() {
     // week は毎回新しいオブジェクトになるので，中身の文字列を依存に使う
   }, [week.from, week.to])
 
-  /** 追加に成功したときの反映．表示中の週の外なら画面を動かさない */
+  /**
+   * 追加に成功したときの反映．表示中の週の内ならその列に足し，
+   * 外なら画面は動かさず，通知のボタンでその週へ移れるようにする
+   */
   function handleCreated(created: Task) {
-    if (
-      created.scheduledDate >= week.from &&
-      created.scheduledDate <= week.to
-    ) {
+    const inThisWeek =
+      created.scheduledDate >= week.from && created.scheduledDate <= week.to
+    if (inThisWeek) {
       setTasks([...tasks, created])
+      snackbar.show(`${created.scheduledDate} に追加しました`)
+    } else {
+      snackbar.show(`${created.scheduledDate} に追加しました（表示中の週の外）`, {
+        label: 'その週へ移動',
+        onClick: () => setAnchor(fromISODate(created.scheduledDate)),
+      })
     }
     setPlacement(null)
   }
