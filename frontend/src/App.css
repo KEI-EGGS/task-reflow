@@ -4,6 +4,8 @@ main {
   margin: 0 auto;
   padding: 24px 16px;
   text-align: left;
+  /* 日付や分数の桁を揃える．幅の違う数字で位置がずれるのを防ぐ */
+  font-variant-numeric: tabular-nums;
 }
 
 h1 {
@@ -15,6 +17,22 @@ h1 {
   color: #a92c2c;
 }
 
+/* 見出しと前後ボタンを1行に並べる */
+.week-nav {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.week-nav h1 {
+  margin: 0;
+}
+
+.week-nav button {
+  padding: 3px 12px;
+}
+
 /* 7列を固定幅で並べ，狭い画面では横スクロールにする．
    折り返すと曜日と列の対応が崩れるので wrap は使わない */
 .week-scroll {
@@ -23,8 +41,11 @@ h1 {
 
 .week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(140px, 1fr));
+  /* min を 0 にすると，中身の幅が列幅に影響しなくなる（1fr は既定で min-content が下限） */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
+  /* 7列 × 140px．これより狭い画面では .week-scroll が横スクロールになる */
+  min-width: 980px;
 }
 
 .day {
@@ -32,6 +53,8 @@ h1 {
   border-radius: 6px;
   padding: 8px;
   min-height: 160px;
+  /* 空き領域を押すとタスクを追加できると分かるように */
+  cursor: pointer;
 }
 
 .day.today {
@@ -99,12 +122,11 @@ h1 {
   font-size: 0.85rem;
 }
 
-/* 2行目の右側．チェックボックスの下は空ける．桁を揃えて読みやすくする */
+/* 2行目の右側．チェックボックスの下は空ける */
 .minutes {
   grid-column: 2;
   justify-self: end;
   color: #5a6478;
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -139,4 +161,55 @@ h1 {
 /* 項目の下に出すエラーは，本文より小さく赤で */
 .add .error {
   font-size: 0.85rem;
+}
+
+/* 画面全体を覆う背景．クリックで閉じる */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modal-head h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.modal-close {
+  padding: 0 8px;
+  font-size: 1.1rem;
+}
+
+/* .add は画面下に置く前提で区切り線を付けていたので，モーダル内では外す */
+.modal .add {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }

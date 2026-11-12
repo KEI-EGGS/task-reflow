@@ -19,6 +19,8 @@ type Props = {
   isToday: boolean
   onToggleDone: (task: Task) => void
   onRemove: (task: Task) => void
+  /** 列の空き領域がクリックされたとき．この列の日付を渡す */
+  onAdd: (date: string) => void
 }
 
 /** 週表示の1列．1日ぶんのタスクを縦に並べる */
@@ -29,15 +31,20 @@ function DayColumn({
   isToday,
   onToggleDone,
   onRemove,
+  onAdd,
 }: Props) {
   return (
-    <section className={isToday ? 'day today' : 'day'}>
+    <section
+      className={isToday ? 'day today' : 'day'}
+      onClick={() => onAdd(date)}
+    >
       <header>
         <span className="weekday">{WEEKDAY_LABELS[dayIndex]}</span>
         <span className="date">{toMonthDay(date)}</span>
       </header>
 
-      <ul className="tasks">
+      {/* タスクの上のクリックは追加として扱わない */}
+      <ul className="tasks" onClick={(e) => e.stopPropagation()}>
         {tasks.map((task) => (
           <li key={task.id} className={task.status === 'done' ? 'done' : ''}>
             <input

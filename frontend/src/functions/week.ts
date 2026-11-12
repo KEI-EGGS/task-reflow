@@ -19,6 +19,14 @@ export function toISODate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/** d の n 日後（n が負なら前）を返す．元の Date は書き換えない */
+export function shiftDays(d: Date, n: number): Date {
+  const shifted = new Date(d)
+  // setDate は月末を超える値を繰り上げるので，月またぎ・年またぎを自分で扱わなくてよい
+  shifted.setDate(d.getDate() + n)
+  return shifted
+}
+
 /** 指定した日を含む週（月曜はじまり）を返す */
 export function weekOf(date: Date): Week {
   // getDay() は 0:日曜 〜 6:土曜．月曜を 0 にするため 6 を足して 7 で割った余りを取る

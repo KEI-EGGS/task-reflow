@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
-  createTask,
   deleteTask,
   fetchTasksInRange,
   updateTask,
-  ValidationError,
-  type FieldErrors,
   type Task,
 } from './api/tasks'
-import { toISODate, weekOf } from './functions/week'
+import { shiftDays, toISODate, weekOf } from './functions/week'
 import DayColumn from './components/Week/DayColumn'
+import TaskForm, { type Placement } from './components/Week/TaskForm'
+import Modal from './components/Common/Modal'
 import './App.css'
 
 /**
@@ -30,62 +29,51 @@ function groupByDate(tasks: Task[]): Map<string, Task[]> {
 }
 
 function App() {
-  // 表示している週を代表する日．週の切り替えは次のブロックで足す
-  const [anchor] = useState(() => new Date())
+  // 表示している週を代表する日．← → でこの日を ±7 日ずらす
+  const [anchor, setAnchor] = useState(() => new Date())
   const [tasks, setTasks] = useState<Task[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // 追加フォームの入力値．minutes も文字列で持つ（空欄を表せるようにするため）
-  const [formDate, setFormDate] = useState(() => toISODate(new Date()))
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [minutes, setMinutes] = useState('60')
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [saving, setSaving] = useState(false)
+  // null のときモーダルは閉じている．開くときは「どこに置くか」を入れる
+  const [placement, setPlacement] = useState<Placement | null>(null)
 
   const week = weekOf(anchor)
   const today = toISODate(new Date())
   const byDate = groupByDate(tasks)
+  // 今日がこの週に含まれていれば「今週へ」は出さない
+  const isThisWeek = week.days.includes(today)
 
   useEffect(() => {
+    // 週を素早く切り替えると取得が並走し，返る順番は保証されない．
+    // この effect が最新かどうかを印として持ち，古い応答では state を触らない
+    let current = true
     setLoading(true)
+    setError(null)
     fetchTasksInRange(week.from, week.to)
-      .then(setTasks)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false))
+      .then((fetched) => {
+        if (current) setTasks(fetched)
+      })
+      .catch((e: Error) => {
+        if (current) setError(e.message)
+      })
+      .finally(() => {
+        if (current) setLoading(false)
+      })
+    return () => {
+      current = false
+    }
     // week は毎回新しいオブジェクトになるので，中身の文字列を依存に使う
   }, [week.from, week.to])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setFieldErrors({})
-    try {
-      const created = await createTask({
-        title,
-        description: description === '' ? null : description,
-        minutes: Number(minutes),
-        scheduledDate: formDate,
-      })
-      // 表示中の週の外に足したときは，画面を動かさない
-      if (
-        created.scheduledDate >= week.from &&
-        created.scheduledDate <= week.to
-      ) {
-        setTasks([...tasks, created])
-      }
-      setTitle('')
-      setDescription('')
-    } catch (e) {
-      if (e instanceof ValidationError) {
-        setFieldErrors(e.fields)
-      } else {
-        setError((e as Error).message)
-      }
-    } finally {
-      setSaving(false)
+  /** 追加に成功したときの反映．表示中の週の外なら画面を動かさない */
+  function handleCreated(created: Task) {
+    if (
+      created.scheduledDate >= week.from &&
+      created.scheduledDate <= week.to
+    ) {
+      setTasks([...tasks, created])
     }
+    setPlacement(null)
   }
 
   /** チェックの付け外し．todo ⇄ done を入れ替えて PUT する */
@@ -114,9 +102,17 @@ function App() {
 
   return (
     <main>
-      <h1>
-        {week.from} 〜 {week.to}
-      </h1>
+      <header className="week-nav">
+        <button onClick={() => setAnchor(shiftDays(anchor, -7))}>←</button>
+        <h1>
+          {week.from} 〜 {week.to}
+        </h1>
+        <button onClick={() => setAnchor(shiftDays(anchor, 7))}>→</button>
+        {!isThisWeek && (
+          <button onClick={() => setAnchor(new Date())}>今週へ</button>
+        )}
+        <button onClick={() => setPlacement({ date: today })}>＋ 追加</button>
+      </header>
 
       {loading && <p>読み込み中…</p>}
       {error && <p className="error">{error}</p>}
@@ -132,53 +128,21 @@ function App() {
               isToday={day === today}
               onToggleDone={toggleDone}
               onRemove={remove}
+              onAdd={(date) => setPlacement({ date })}
             />
           ))}
         </div>
       </div>
 
-      <form className="add" onSubmit={handleSubmit}>
-        <label>
-          日付
-          <input
-            type="date"
-            value={formDate}
-            onChange={(e) => setFormDate(e.target.value)}
+      {placement && (
+        <Modal title="タスクを追加" onClose={() => setPlacement(null)}>
+          <TaskForm
+            placement={placement}
+            onCreated={handleCreated}
+            onCancel={() => setPlacement(null)}
           />
-        </label>
-
-        <label>
-          タスク名
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
-          {fieldErrors.title && (
-            <span className="error">{fieldErrors.title}</span>
-          )}
-        </label>
-
-        <label>
-          補足（任意）
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </label>
-
-        <label>
-          見積もり（分）
-          <input
-            type="number"
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-          />
-          {fieldErrors.minutes && (
-            <span className="error">{fieldErrors.minutes}</span>
-          )}
-        </label>
-
-        <button type="submit" disabled={saving}>
-          {saving ? '追加中…' : '追加'}
-        </button>
-      </form>
+        </Modal>
+      )}
     </main>
   )
 }
